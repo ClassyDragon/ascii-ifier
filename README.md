@@ -1,2 +1,2 @@
-# ascii_fier
+# ascii-ifier
 ASCII-fy your image!
