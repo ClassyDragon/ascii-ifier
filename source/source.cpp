@@ -1,5 +1,7 @@
 
 #include <iostream>
+#include <vector>
+#include "Pixel.h"
 
 static bool debug_mode = true;
 
@@ -9,7 +11,7 @@ void Debug_Log(std::string message) {
     }
 }
 
-void read_bitmap(const char* filename, unsigned char info[]) {
+void read_bitmap(const char* filename, unsigned char info[], std::vector<Pixel>& pixels, unsigned char* data) {
     FILE* pfile = fopen(filename, "rb"); // Open bitmap in read binary mode.
     if (pfile == NULL) { // Exit program if file is not found.
         std::cout << "Could not open file: " << filename << std::endl;
@@ -32,7 +34,22 @@ void read_bitmap(const char* filename, unsigned char info[]) {
      * sizez_t count: number of elements.
      * FILE* file: File stream to read from.
      */
-    fread(info, sizeof(unsigned char), 54, pfile);
+    fread(info, sizeof(unsigned char), 122, pfile);
+
+    int width = *((int*)(&info[18]));
+    int height = *((int*)(&info[22]));
+    int size = 3 * width * height;
+
+    data = new unsigned char[size];
+    fread(data, sizeof(unsigned char), size, pfile);
+
+    int r, g, b;
+    for (int i = 0; i < size; i += 3) {
+        b = data[i];
+        g = data[i + 1];
+        r = data[i + 2];
+        pixels.push_back(Pixel(r, g, b));
+    }
 
     fclose(pfile);
 }
@@ -41,11 +58,15 @@ void display_data(const char* filename) {
 }
 
 int main(int argc, char** argv) {
-    unsigned char info[54];
+    unsigned char info[122];
+    std::vector<Pixel> pixels;
+    unsigned char* data;
     if (argc >= 2) {
-        read_bitmap(argv[1], info);
+        read_bitmap(argv[1], info, pixels, data);
     }
     else {
+        std::cout << "ascii_ifier: No input file!\n"
+            << "\tUsage: ascii_ifier <filename>\n";
         return 1;
     }
 
@@ -55,13 +76,25 @@ int main(int argc, char** argv) {
      */
     int width = *((int*)(&info[18]));
     int height = *((int*)(&info[22]));
+    unsigned char bpp = info[28]; // *((unsigned char*)&info[28]);
     std::cout << "Width: " << width << std::endl;
     std::cout << "Height: " << height << std::endl;
+    std::cout << "Bits per Pixel: " << (int)bpp << std::endl;
 
-    //int total_pixels = width * height;
-    //int size_of_array = total_pixels * 3;
-    //unsigned char* pixel_data = new unsigned char[size_of_array];
+    std::cout << "Pixels:\n";
+    for (auto& i : pixels) {
+        i.print();
+    }
 
-    //fread(pixel_data, sizeof(unsigned char), size_of_array, pfile);
+    std::string str = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+
+    for (int i = 0; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+            std::cout << str[pixels[(i%width) + (j/height)].get_average() % str.length()];
+        }
+        std::cout << std::endl;
+    }
+
+
     return 0;
 }
