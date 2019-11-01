@@ -36,7 +36,7 @@ void read_bitmap(const char* filename, unsigned char info[], std::vector<Pixel>&
      */
     fread(info, sizeof(unsigned char), 122, pfile);
 
-    int width = *((int*)(&info[18]));
+    int width = *((int*)(&info[18])) + 1;
     int height = *((int*)(&info[22]));
     int size = 3 * width * height;
 
@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
      * The width is a 4-byte value stored at offset 18.
      * The height is a 4-byte value stored at offset 22.
      */
-    int width = *((int*)(&info[18]));
+    int width = *((int*)(&info[18])) + 1;
     int height = *((int*)(&info[22]));
     unsigned char bpp = info[28]; // *((unsigned char*)&info[28]);
     std::cout << "Width: " << width << std::endl;
@@ -82,15 +82,35 @@ int main(int argc, char** argv) {
     std::cout << "Bits per Pixel: " << (int)bpp << std::endl;
 
     std::cout << "Pixels:\n";
-    for (auto& i : pixels) {
-        i.print();
+    for (int i = 0; i < pixels.size(); i++) {
+        std::cout << "#: " << i << " ";
+        pixels[i].print();
     }
 
+    std::cout << "Number of Pixels: " << pixels.size() << std::endl;
     std::string str = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
 
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++) {
-            std::cout << str[pixels[(i%width) + (j/height)].get_average() % str.length()];
+    int index = 0;
+    float multiplier = (float)(str.length()) / 255.0000; 
+    std::cout << "Length of String: " << str.length() << std::endl;
+    std::cout << "Multiplier: " << multiplier << std::endl;
+    /*for (int i = 0; i < width; i++) {
+        for (int j = height - 1; j > 0; j--) {
+            index = (int)((float)(pixels[(width * (i % width)) + (j % height)].get_average() * multiplier)) - 1;
+            if (index < 0)
+                index = 0;
+//            std::cout << "Index: " << index << std::endl;
+            std::cout << str[index];
+        }
+        std::cout << std::endl;
+    }
+    */
+    for (int i = height - 1; i >= 0; i--) {
+        for (int j = 0 ; j < width; j++) {
+            index = (int)((float)(pixels[(width * (i % width)) + (j % height)].get_average() * multiplier)) - 1;
+            if (index < 0)
+                index = 0;
+            std::cout << str[index];
         }
         std::cout << std::endl;
     }
