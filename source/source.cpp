@@ -36,7 +36,8 @@ void read_bitmap(const char* filename, unsigned char info[], std::vector<Pixel>&
      */
     fread(info, sizeof(unsigned char), 122, pfile);
 
-    int width = *((int*)(&info[18])) + 1;
+    int width = *((int*)(&info[18]));
+    width += 4 - (width % 4);
     int height = *((int*)(&info[22]));
     int size = 3 * width * height;
 
@@ -54,8 +55,12 @@ void read_bitmap(const char* filename, unsigned char info[], std::vector<Pixel>&
     fclose(pfile);
 }
 
+void read_bitmap_new() {
+}
+
 void display_data(const char* filename) {
 }
+
 
 int main(int argc, char** argv) {
     unsigned char info[122];
@@ -74,18 +79,19 @@ int main(int argc, char** argv) {
      * The width is a 4-byte value stored at offset 18.
      * The height is a 4-byte value stored at offset 22.
      */
-    int width = *((int*)(&info[18])) + 1;
+    int width = *((int*)(&info[18]));
+    width += 4 - (width % 4);
     int height = *((int*)(&info[22]));
     unsigned char bpp = info[28]; // *((unsigned char*)&info[28]);
     std::cout << "Width: " << width << std::endl;
     std::cout << "Height: " << height << std::endl;
     std::cout << "Bits per Pixel: " << (int)bpp << std::endl;
 
-    std::cout << "Pixels:\n";
-    for (int i = 0; i < pixels.size(); i++) {
-        std::cout << "#: " << i << " ";
-        pixels[i].print();
-    }
+//    std::cout << "Pixels:\n";
+//    for (int i = 0; i < pixels.size(); i++) {
+//        std::cout << "#: " << i << " ";
+//        pixels[i].print();
+//    }
 
     std::cout << "Number of Pixels: " << pixels.size() << std::endl;
     std::string str = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
