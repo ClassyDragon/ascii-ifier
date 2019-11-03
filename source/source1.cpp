@@ -32,8 +32,10 @@ void read_file(std::string& filename) {
     int starting_address = (int)info[10];
     int width = *((int*)(&info[18]));
     int row_width = width;
-    while (((row_width * 3) + starting_address) % 4 != 0) {
-        row_width++;
+    if (width % 4 != 0) {
+        while (((row_width * 3) + starting_address) % 4 != 0) {
+            row_width++;
+        }
     }
     int amount_ignore = (row_width - width) * 1;
     int height = *((int*)(&info[22]));
