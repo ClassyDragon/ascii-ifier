@@ -1,126 +1,129 @@
+/*
+ * Implementation 2: C++ version
+ */
 
 #include <iostream>
+#include <iomanip>
+#include <fstream>
 #include <vector>
+#include <string>
 #include "Pixel.h"
 
-static bool debug_mode = true;
+static const bool show_header_info = true;
 
-void Debug_Log(std::string message) {
-    if (debug_mode) {
-        std::cout << message << std::endl;
-    }
-}
-
-void read_bitmap(const char* filename, unsigned char info[], std::vector<Pixel>& pixels, unsigned char* data) {
-    FILE* pfile = fopen(filename, "rb"); // Open bitmap in read binary mode.
-    if (pfile == NULL) { // Exit program if file is not found.
-        std::cout << "Could not open file: " << filename << std::endl;
-    }
-    // Check that file is a bitmap:
-    std::string s(filename);
-    if (s.size() < 4) {
-        std::cout << "File is not a bitmap image." << std::endl;
-        exit(1);
-    }
-    if (s.substr(s.size() - 4, 4) != ".bmp") {
-        std::cout << "File is not a bitmap image." << std::endl;
-        exit(1);
+void read_file(std::string& filename) {
+    // Open input file in binary mode:
+    std::ifstream data(filename, std::ios_base::binary);
+    data >> std::noskipws;
+    if (data.fail()) {
+        std::cout << "Could not open " << filename << "." << std::endl;
+        exit (1);
     }
 
-    /*
-     * fread usage: fread(void* ptr, size_t size, size_t count, FILE* file)
-     * void* ptr: pointer to block of memory to write to, converted to void* type.
-     * size_t size: Size of each element.
-     * sizez_t count: number of elements.
-     * FILE* file: File stream to read from.
-     */
-    fread(info, sizeof(unsigned char), 122, pfile);
+    // Store each byte (char) in a vector:
+    std::vector<unsigned char> info;
+    unsigned char temp;
+    while (!data.eof()) {
+        data >> temp;
+        info.push_back(temp);
+    }
+    data.close();
 
+    int starting_address = (int)info[10];
     int width = *((int*)(&info[18]));
-    width += 4 - (width % 4);
+    int row_width = width;
+    if (width % 4 != 0) {
+        int temp = row_width * 3;
+        //while (((row_width * 3) + starting_address) % 4 != 0) {
+        while (temp % 4 != 0) {
+            row_width++;
+            temp++;
+        }
+    }
+    int amount_ignore = (row_width - width) * 1;
     int height = *((int*)(&info[22]));
-    int size = 3 * width * height;
-
-    data = new unsigned char[size];
-    fread(data, sizeof(unsigned char), size, pfile);
-
-    int r, g, b;
-    for (int i = 0; i < size; i += 3) {
-        b = data[i];
-        g = data[i + 1];
-        r = data[i + 2];
-        pixels.push_back(Pixel(r, g, b));
+    int r1_end = starting_address + (width * 3);
+    int r1_end2 = starting_address + (row_width * 3);
+    int bpp = *((int*)(&info[28]));
+    if (show_header_info) {
+        std::cout << "=============HEADER INFO==================\n";
+        std::cout << "Size of vector : " << info.size() << std::endl;
+        std::cout << "Width : " << width << std::endl;
+        std::cout << "Height : " << height << std::endl;
+        std::cout << "Bits per pixel: " << bpp << std::endl;
+        std::cout << "Row Width : " << row_width << std::endl;
+        std::cout << "Starting address of pixels : " << starting_address << std::endl;
+        std::cout << "Ignore size: " << amount_ignore << std::endl;
+        std::cout << "Address of last pixel in r1: " << "0x" << std::hex << r1_end << std::endl;
+        std::cout << "Address of end of r1: " << "0x" << std::hex << r1_end2 << std::endl;
+        std::cout << "==========================================\n\n";
     }
 
-    fclose(pfile);
-}
+    std::vector<Pixel> pixels;
+    unsigned char throwaway = 0;
 
-void read_bitmap_new() {
-}
+    std::cout << std::dec;
 
-void display_data(const char* filename) {
-}
+    int iteration = 0;
+    while (iteration < info.size() - starting_address - 1) {
+        for (int i = 0; i < width * 3; i += 3) {
+            int r, g, b;
+            b = info[i + iteration + starting_address];
+            g = info[i + 1 + iteration + starting_address];
+            r = info[i + 2 + iteration + starting_address];
+            pixels.push_back(Pixel(r, g, b));
+        }
+        iteration += (width * 3) + amount_ignore;
+    }
 
+    std::string str = " ^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+    float multiplier = (float)(str.length()) / 255.0000; 
+    int vector_index = 0;
+    int string_index = 0;
+
+    for (int j = height - 1; j >= 0; j--) {
+        for (int i = 0; i < width; i++) {
+            vector_index = (width * j/*beginning index of containing row*/) + (i % width/*horizontal index in the row*/);
+            string_index = (int)((float)(pixels[vector_index].get_average() * multiplier)) - 1;
+            if (string_index < 0)
+                string_index = 0;
+            std::cout << str[string_index];
+        }
+        std::cout << std::endl;
+    }
+    if (show_header_info) {
+        std::cout << std::dec;
+        std::cout << "=============HEADER INFO==================\n";
+        std::cout << "Size of vector : " << info.size() << std::endl;
+        std::cout << "Width : " << width << std::endl;
+        std::cout << "Height : " << height << std::endl;
+        std::cout << "Bits per pixel: " << bpp << std::endl;
+        std::cout << "Row Width : " << row_width << std::endl;
+        std::cout << "Starting address of pixels : " << starting_address << std::endl;
+        std::cout << "Number of pixels: " << pixels.size() << std::endl;
+        std::cout << "Ignore size: " << amount_ignore << std::endl;
+        std::cout << "Address of last pixel in r1: " << "0x" << std::hex << r1_end << std::endl;
+        std::cout << "Address of end of r1: " << "0x" << std::hex << r1_end2 << std::endl;
+        std::cout << "Testing: " << info.size() - starting_address << std::endl;
+        std::cout << "==========================================\n\n";
+    }
+}
 
 int main(int argc, char** argv) {
-    unsigned char info[122];
-    std::vector<Pixel> pixels;
-    unsigned char* data;
-    if (argc >= 2) {
-        read_bitmap(argv[1], info, pixels, data);
+    // Command Format: ./ascii2 [filepath]
+    if (argc >= 2) { // Correct Use
+        std::string filename(argv[1]);
+        read_file(filename);
     }
     else {
-        std::cout << "ascii_ifier: No input file!\n"
-            << "\tUsage: ascii_ifier <filename>\n";
-        return 1;
+        std::cout << "==========ASCII-ifier by Caleb Geyer==========" << std::endl
+            << "| Note: To run from command line: ./ascii-ifier <filepath>" << std::endl
+            << "|\n"
+            << "| Input a filepath. This program supports .bmp images in\n"
+            << "| 24 bits per pixel format.\n";
+        std::string filepath;
+        getline(std::cin, filepath);
+        read_file(filepath);
     }
-
-    /*
-     * The width is a 4-byte value stored at offset 18.
-     * The height is a 4-byte value stored at offset 22.
-     */
-    int width = *((int*)(&info[18]));
-    width += 4 - (width % 4);
-    int height = *((int*)(&info[22]));
-    unsigned char bpp = info[28]; // *((unsigned char*)&info[28]);
-    std::cout << "Width: " << width << std::endl;
-    std::cout << "Height: " << height << std::endl;
-    std::cout << "Bits per Pixel: " << (int)bpp << std::endl;
-
-//    std::cout << "Pixels:\n";
-//    for (int i = 0; i < pixels.size(); i++) {
-//        std::cout << "#: " << i << " ";
-//        pixels[i].print();
-//    }
-
-    std::cout << "Number of Pixels: " << pixels.size() << std::endl;
-    std::string str = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
-
-    int index = 0;
-    float multiplier = (float)(str.length()) / 255.0000; 
-    std::cout << "Length of String: " << str.length() << std::endl;
-    std::cout << "Multiplier: " << multiplier << std::endl;
-    /*for (int i = 0; i < width; i++) {
-        for (int j = height - 1; j > 0; j--) {
-            index = (int)((float)(pixels[(width * (i % width)) + (j % height)].get_average() * multiplier)) - 1;
-            if (index < 0)
-                index = 0;
-//            std::cout << "Index: " << index << std::endl;
-            std::cout << str[index];
-        }
-        std::cout << std::endl;
-    }
-    */
-    for (int i = height - 1; i >= 0; i--) {
-        for (int j = 0 ; j < width; j++) {
-            index = (int)((float)(pixels[(width * (i % width)) + (j % height)].get_average() * multiplier)) - 1;
-            if (index < 0)
-                index = 0;
-            std::cout << str[index];
-        }
-        std::cout << std::endl;
-    }
-
-
     return 0;
 }
