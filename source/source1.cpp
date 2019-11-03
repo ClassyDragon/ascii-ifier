@@ -34,7 +34,7 @@ void read_file(std::string& filename) {
     while ((row_width * 3) % 4 != 0) {
         row_width++;
     }
-    int amount_ignore = row_width - width;
+    int amount_ignore = (row_width - width) * 3;
     
     // Header info:
 //    int width = *((int*)(&info[18]));
@@ -42,10 +42,10 @@ void read_file(std::string& filename) {
         // Round width up to the nearest number divisible by 4:
       //  width += 4 - (width % 4);
     //}
-    while (width % 4 != 0) {
-        width++;
-    }
-    std::cout << "Width * 3: " << width * 3 << std::endl;
+    //while (width % 4 != 0) {
+    //    width++;
+    //}
+    //std::cout << "Width * 3: " << width * 3 << std::endl;
     // Round so that 
 //    while ((width - (int)info[10]) % 4 != 0) {
 //        width += 3;
@@ -73,21 +73,22 @@ void read_file(std::string& filename) {
 
     std::cout << std::dec;
 
-    /*int iteration = 0;
-    while (iteration != info.size()) {
-        for (int i = 0; i < width; i++) {
+    int iteration = 0;
+    //std::cout << "Reading from " << std::hex << "0x" << iteration + starting_address << std::endl;
+    while (iteration < info.size()) {
+        for (int i = 0; i < width * 3; i += 3) {
             int r, g, b;
-            b = info[i];
-            g = info[i + 1];
-            r = info[i + 2];
-//            std::cout << r << " " << g << " " << b << std::endl;
+            b = info[i + iteration + starting_address];
+            g = info[i + 1 + iteration + starting_address];
+            r = info[i + 2 + iteration + starting_address];
+            std::cout << b << " " << g << " " << r << std::endl;
             pixels.push_back(Pixel(r, g, b));
         }
-        iteration += width + amount_ignore;
-//        std::cout << iteration << std::endl;
-    }*/
+        iteration += (width * 3) + amount_ignore;
+        //std::cout << "Reading from 0x" << iteration + starting_address  << std::endl;
+    }
 
-    for (int i = (int)info[10]; i < info.size(); i += 3) {
+/*    for (int i = (int)info[10]; i < info.size(); i += 3) {
         int r, g, b;
         b = info[i];
         g = info[i + 1];
@@ -95,6 +96,7 @@ void read_file(std::string& filename) {
         //std::cout << r << " " << g << " " << b << std::endl;
         pixels.push_back(Pixel(r, g, b));
     }
+    */
 
     std::string str = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     float multiplier = (float)(str.length()) / 255.0000; 
