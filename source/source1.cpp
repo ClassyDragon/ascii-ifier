@@ -29,38 +29,24 @@ void read_file(std::string& filename) {
     }
     data.close();
 
+    int starting_address = (int)info[10];
     int width = *((int*)(&info[18]));
     int row_width = width;
-    while ((row_width * 3) % 4 != 0) {
+    while (((row_width * 3) + starting_address) % 4 != 0) {
         row_width++;
     }
-    int amount_ignore = (row_width - width) * 3;
-    
-    // Header info:
-//    int width = *((int*)(&info[18]));
-    //if (width % 4 != 0) {
-        // Round width up to the nearest number divisible by 4:
-      //  width += 4 - (width % 4);
-    //}
-    //while (width % 4 != 0) {
-    //    width++;
-    //}
-    //std::cout << "Width * 3: " << width * 3 << std::endl;
-    // Round so that 
-//    while ((width - (int)info[10]) % 4 != 0) {
-//        width += 3;
-//    }
-
-//    width += (width % 4);
+    int amount_ignore = (row_width - width) * 1;
     int height = *((int*)(&info[22]));
-    int starting_address = (int)info[10];
     int r1_end = starting_address + (width * 3);
     int r1_end2 = starting_address + (row_width * 3);
+    int bpp = *((int*)(&info[28]));
     if (show_header_info) {
         std::cout << "=============HEADER INFO==================\n";
         std::cout << "Size of vector : " << info.size() << std::endl;
         std::cout << "Width : " << width << std::endl;
         std::cout << "Height : " << height << std::endl;
+        std::cout << "Bits per pixel: " << bpp << std::endl;
+        std::cout << "Row Width : " << row_width << std::endl;
         std::cout << "Starting address of pixels : " << starting_address << std::endl;
         std::cout << "Ignore size: " << amount_ignore << std::endl;
         std::cout << "Address of last pixel in r1: " << "0x" << std::hex << r1_end << std::endl;
@@ -74,29 +60,16 @@ void read_file(std::string& filename) {
     std::cout << std::dec;
 
     int iteration = 0;
-    //std::cout << "Reading from " << std::hex << "0x" << iteration + starting_address << std::endl;
-    while (iteration < info.size()) {
+    while (iteration < info.size() - starting_address - 1) {
         for (int i = 0; i < width * 3; i += 3) {
             int r, g, b;
             b = info[i + iteration + starting_address];
             g = info[i + 1 + iteration + starting_address];
             r = info[i + 2 + iteration + starting_address];
-            std::cout << b << " " << g << " " << r << std::endl;
             pixels.push_back(Pixel(r, g, b));
         }
         iteration += (width * 3) + amount_ignore;
-        //std::cout << "Reading from 0x" << iteration + starting_address  << std::endl;
     }
-
-/*    for (int i = (int)info[10]; i < info.size(); i += 3) {
-        int r, g, b;
-        b = info[i];
-        g = info[i + 1];
-        r = info[i + 2];
-        //std::cout << r << " " << g << " " << b << std::endl;
-        pixels.push_back(Pixel(r, g, b));
-    }
-    */
 
     std::string str = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     float multiplier = (float)(str.length()) / 255.0000; 
@@ -106,15 +79,28 @@ void read_file(std::string& filename) {
     for (int j = height - 1; j >= 0; j--) {
         for (int i = 0; i < width; i++) {
             vector_index = (width * j/*beginning index of containing row*/) + (i % width/*horizontal index in the row*/);
-            //std::cout << findex << " ";
             string_index = (int)((float)(pixels[vector_index].get_average() * multiplier)) - 1;
             if (string_index < 0)
                 string_index = 0;
-//            std::cout << vector_index << " ";
-//            std::cout << pixels[vector_index].get_average() << " ";
             std::cout << str[string_index];
         }
         std::cout << std::endl;
+    }
+    if (show_header_info) {
+        std::cout << std::dec;
+        std::cout << "=============HEADER INFO==================\n";
+        std::cout << "Size of vector : " << info.size() << std::endl;
+        std::cout << "Width : " << width << std::endl;
+        std::cout << "Height : " << height << std::endl;
+        std::cout << "Bits per pixel: " << bpp << std::endl;
+        std::cout << "Row Width : " << row_width << std::endl;
+        std::cout << "Starting address of pixels : " << starting_address << std::endl;
+        std::cout << "Number of pixels: " << pixels.size() << std::endl;
+        std::cout << "Ignore size: " << amount_ignore << std::endl;
+        std::cout << "Address of last pixel in r1: " << "0x" << std::hex << r1_end << std::endl;
+        std::cout << "Address of end of r1: " << "0x" << std::hex << r1_end2 << std::endl;
+        std::cout << "Testing: " << info.size() - starting_address << std::endl;
+        std::cout << "==========================================\n\n";
     }
 }
 
