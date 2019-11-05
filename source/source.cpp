@@ -9,9 +9,8 @@
 #include <string>
 #include "Pixel.h"
 
-static const bool show_header_info = true;
 
-void read_file(std::string& filename) {
+void read_file(std::string& filename, bool show_header_info) {
     // Open input file in binary mode:
     std::ifstream data(filename, std::ios_base::binary);
     data >> std::noskipws;
@@ -29,7 +28,7 @@ void read_file(std::string& filename) {
     }
     data.close();
 
-    int starting_address = (int)info[10];
+    int starting_address = *((int*)(&info[10]));
     int width = *((int*)(&info[18]));
     int row_width = width;
     if (width % 4 != 0) {
@@ -45,32 +44,40 @@ void read_file(std::string& filename) {
     int r1_end = starting_address + (width * 3);
     int r1_end2 = starting_address + (row_width * 3);
     int bpp = *((int*)(&info[28]));
+
     if (show_header_info) {
+        std::cout << std::dec;
         std::cout << "=============HEADER INFO==================\n";
         std::cout << "Size of vector : " << info.size() << std::endl;
         std::cout << "Width : " << width << std::endl;
         std::cout << "Height : " << height << std::endl;
         std::cout << "Bits per pixel: " << bpp << std::endl;
         std::cout << "Row Width : " << row_width << std::endl;
-        std::cout << "Starting address of pixels : " << starting_address << std::endl;
-        std::cout << "Ignore size: " << amount_ignore << std::endl;
+        std::cout << "Starting address of pixels : 0x" << std::hex << starting_address << std::endl;
+//        std::cout << "Number of pixels: " << pixels.size() << std::endl;
+        std::cout << "Ignore size: " << std::dec << amount_ignore << std::endl;
         std::cout << "Address of last pixel in r1: " << "0x" << std::hex << r1_end << std::endl;
         std::cout << "Address of end of r1: " << "0x" << std::hex << r1_end2 << std::endl;
+        std::cout << "Testing: " << info.size() - starting_address << std::endl;
         std::cout << "==========================================\n\n";
     }
-
     std::vector<Pixel> pixels;
     unsigned char throwaway = 0;
 
     std::cout << std::dec;
 
     int iteration = 0;
+    int read_index = 0;
     while (iteration < info.size() - starting_address - 1) {
         for (int i = 0; i < width * 3; i += 3) {
+            read_index = i + iteration + starting_address;
             int r, g, b;
-            b = info[i + iteration + starting_address];
-            g = info[i + 1 + iteration + starting_address];
-            r = info[i + 2 + iteration + starting_address];
+            b = info[read_index];
+            g = info[read_index + 1];
+            r = info[read_index + 2];
+            // DEBUGGING ONLY:
+//            std::cout << "At 0x" << std::hex << read_index << ":     " << std::dec << b << "      0x" << std::hex << read_index + 1 << ":     " << std::dec << g 
+//                << "      0x" << std::hex << read_index + 2 << ":     " << std::dec << r << "     " << "Iteration: " << iteration << " " << "Pixel:   0x" << std::hex << read_index << std::endl;
             pixels.push_back(Pixel(r, g, b));
         }
         iteration += (width * 3) + amount_ignore;
@@ -112,8 +119,15 @@ void read_file(std::string& filename) {
 int main(int argc, char** argv) {
     // Command Format: ./ascii2 [filepath]
     if (argc >= 2) { // Correct Use
+        bool show_header_info = false;
+        if (argc >= 3) {
+            std::string flag(argv[2]);
+            if (flag == "-d") {
+                show_header_info = true;
+            }
+        }
         std::string filename(argv[1]);
-        read_file(filename);
+        read_file(filename, show_header_info);
     }
     else {
         std::cout << "==========ASCII-ifier by Caleb Geyer==========" << std::endl
@@ -123,7 +137,7 @@ int main(int argc, char** argv) {
             << "| 24 bits per pixel format.\n";
         std::string filepath;
         getline(std::cin, filepath);
-        read_file(filepath);
+        read_file(filepath, false);
     }
     return 0;
 }
