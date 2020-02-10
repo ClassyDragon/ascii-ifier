@@ -1,143 +1,120 @@
-/*
- * Implementation 2: C++ version
- */
-
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <vector>
 #include <string>
-#include "Pixel.h"
 
+typedef unsigned char byte;
 
-void read_file(std::string& filename, bool show_header_info) {
+struct Pixel {
+    public:
+        Pixel() : rgba(nullptr) {}
+        Pixel(unsigned int bytesPerPixel)
+            : bytesPerPixel(bytesPerPixel)
+        {
+            this->rgba = new byte[bytesPerPixel];
+        }
+
+        ~Pixel() {
+            if (this->rgba) delete[] this->rgba;
+        }
+
+        inline void setRGBA(byte* rgba) { this->rgba = rgba; }
+        inline byte* getRGBA() const { return this->rgba; }
+        unsigned int getAverage() const {
+            return (rgba[bytesPerPixel - 1] + rgba[bytesPerPixel - 2] + rgba[bytesPerPixel - 3]) / 3;
+        }
+    private:
+        unsigned int bytesPerPixel;
+        byte* rgba;
+};
+
+bool readFile(const std::string& filename) {
     // Open input file in binary mode:
     std::ifstream data(filename, std::ios_base::binary);
-    data >> std::noskipws;
+    data >> std::noskipws; // Don't interpret whitespace
     if (data.fail()) {
         std::cout << "Could not open " << filename << "." << std::endl;
-        exit (1);
+        return false;
     }
 
-    // Store each byte (char) in a vector:
-    std::vector<unsigned char> info;
-    unsigned char temp;
-    while (!data.eof()) {
-        data >> temp;
-        info.push_back(temp);
+    auto throwAwayBytes = [&](int numBytes) {
+        byte temp;
+        for (int i = 0; i < numBytes; i++) data >> temp;
+    };
+
+    throwAwayBytes(2);
+    unsigned int sizeInBytes; data.read((char*)&sizeInBytes, 4); // 0x02 -> 0x05
+    throwAwayBytes(4);
+    unsigned int startingAddress; data.read((char*)&startingAddress, 4); // 0x0A -> 0x0D
+    unsigned int sizeOfHeader; data.read((char*)&sizeOfHeader, 4); // 0x0E -> 0x11
+    unsigned int width; data.read((char*)&width, 4); // 0x12 -> 0x15
+    unsigned int height; data.read((char*)&height, 4); // 0x16 -> 0x19
+    throwAwayBytes(2);
+    unsigned short bpp; data.read((char*)&bpp, 2); // 0x1C -> 0x1D 30 bytes total
+    unsigned short bytesPerPixel = bpp / 8;
+    throwAwayBytes(4);
+    unsigned int imageSize; data.read((char*)&imageSize, 4); // 0x22 -> 0x25 38 bytes total
+    throwAwayBytes(startingAddress - 38);
+
+    auto calculatePadding = [&]() {
+        if (!((width * bytesPerPixel) % 4)) return 0;
+        int padding = 1;
+        while (((width * bytesPerPixel) + padding) % 4) padding++;
+        return padding;
+    };
+    int padding = calculatePadding();
+    size_t arrSize = imageSize * sizeof(byte) - (height * padding);
+    byte* pixelData = new byte[arrSize];
+    for (unsigned int i = 0; i < arrSize; i++) {
+        pixelData[i] = 69;
     }
+
+    byte temp;
+    for (unsigned int i = 0; i < height; i++) {
+        for (unsigned int j = 0; j < width * bytesPerPixel; j++) {
+            data.read((char*)&temp, 1);
+            pixelData[i * (width * bytesPerPixel) + j] = temp;
+        }
+        for (int j = 0; j < padding; j++) data.read((char*)&temp, 1);
+    }
+
     data.close();
 
-    int starting_address = *((int*)(&info[10]));
-    int width = *((int*)(&info[18]));
-    int row_width = width;
-    if (width % 4 != 0) {
-        int temp = row_width * 3;
-        //while (((row_width * 3) + starting_address) % 4 != 0) {
-        while (temp % 4 != 0) {
-            row_width++;
-            temp++;
+    //unsigned int numPixels = (imageSize / bytesPerPixel) - (padding * height);
+    unsigned int numPixels = (imageSize - (padding * height)) / bytesPerPixel;
+    Pixel* pixels = new Pixel[numPixels];
+
+    for (unsigned int i = 0; i < numPixels; i++) {
+        byte* currentPixelData = new byte[bytesPerPixel];
+        for (unsigned int j = 0; j < bytesPerPixel; j++) {
+            currentPixelData[j] = pixelData[(i * bytesPerPixel) + j];
         }
-    }
-    int amount_ignore = (row_width - width) * 1;
-    int height = *((int*)(&info[22]));
-    int r1_end = starting_address + (width * 3);
-    int r1_end2 = starting_address + (row_width * 3);
-    int bpp = *((int*)(&info[28]));
-
-    if (show_header_info) {
-        std::cout << std::dec;
-        std::cout << "=============HEADER INFO==================\n";
-        std::cout << "Size of vector : " << info.size() << std::endl;
-        std::cout << "Width : " << width << std::endl;
-        std::cout << "Height : " << height << std::endl;
-        std::cout << "Bits per pixel: " << bpp << std::endl;
-        std::cout << "Row Width : " << row_width << std::endl;
-        std::cout << "Starting address of pixels : 0x" << std::hex << starting_address << std::endl;
-//        std::cout << "Number of pixels: " << pixels.size() << std::endl;
-        std::cout << "Ignore size: " << std::dec << amount_ignore << std::endl;
-        std::cout << "Address of last pixel in r1: " << "0x" << std::hex << r1_end << std::endl;
-        std::cout << "Address of end of r1: " << "0x" << std::hex << r1_end2 << std::endl;
-        std::cout << "Testing: " << info.size() - starting_address << std::endl;
-        std::cout << "==========================================\n\n";
-    }
-    std::vector<Pixel> pixels;
-    unsigned char throwaway = 0;
-
-    std::cout << std::dec;
-
-    int iteration = 0;
-    int read_index = 0;
-    while (iteration < info.size() - starting_address - 1) {
-        for (int i = 0; i < width * 3; i += 3) {
-            read_index = i + iteration + starting_address;
-            int r, g, b;
-            b = info[read_index];
-            g = info[read_index + 1];
-            r = info[read_index + 2];
-            // DEBUGGING ONLY:
-//            std::cout << "At 0x" << std::hex << read_index << ":     " << std::dec << b << "      0x" << std::hex << read_index + 1 << ":     " << std::dec << g 
-//                << "      0x" << std::hex << read_index + 2 << ":     " << std::dec << r << "     " << "Iteration: " << iteration << " " << "Pixel:   0x" << std::hex << read_index << std::endl;
-            pixels.push_back(Pixel(r, g, b));
-        }
-        iteration += (width * 3) + amount_ignore;
+        pixels[i] = Pixel(bytesPerPixel);
+        pixels[i].setRGBA(currentPixelData);
     }
 
     std::string str = " ^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
-    float multiplier = (float)(str.length()) / 255.0000; 
-    int vector_index = 0;
-    int string_index = 0;
+    const float divider = (255.0f / (float)str.length());
 
-    for (int j = height - 1; j >= 0; j--) {
-        for (int i = 0; i < width; i++) {
-            vector_index = (width * j/*beginning index of containing row*/) + (i % width/*horizontal index in the row*/);
-            string_index = (int)((float)(pixels[vector_index].get_average() * multiplier)) - 1;
-            if (string_index < 0)
-                string_index = 0;
-            std::cout << str[string_index];
+    for (int i = height - 1; i >= 0; i--) {
+        for (unsigned int j = 0; j < width; j++) {
+            unsigned int arrIndex = pixels[i * width + j].getAverage() / divider;
+            arrIndex = (arrIndex == str.length() ? arrIndex - 1 : arrIndex);
+            std::cout << str[arrIndex];
         }
         std::cout << std::endl;
     }
-    if (show_header_info) {
-        std::cout << std::dec;
-        std::cout << "=============HEADER INFO==================\n";
-        std::cout << "Size of vector : " << info.size() << std::endl;
-        std::cout << "Width : " << width << std::endl;
-        std::cout << "Height : " << height << std::endl;
-        std::cout << "Bits per pixel: " << bpp << std::endl;
-        std::cout << "Row Width : " << row_width << std::endl;
-        std::cout << "Starting address of pixels : " << starting_address << std::endl;
-        std::cout << "Number of pixels: " << pixels.size() << std::endl;
-        std::cout << "Ignore size: " << amount_ignore << std::endl;
-        std::cout << "Address of last pixel in r1: " << "0x" << std::hex << r1_end << std::endl;
-        std::cout << "Address of end of r1: " << "0x" << std::hex << r1_end2 << std::endl;
-        std::cout << "Testing: " << info.size() - starting_address << std::endl;
-        std::cout << "==========================================\n\n";
-    }
+
+    delete[] pixels;
+    delete[] pixelData;
+    return true;
 }
 
 int main(int argc, char** argv) {
-    // Command Format: ./ascii2 [filepath]
-    if (argc >= 2) { // Correct Use
-        bool show_header_info = false;
-        if (argc >= 3) {
-            std::string flag(argv[2]);
-            if (flag == "-d") {
-                show_header_info = true;
-            }
-        }
-        std::string filename(argv[1]);
-        read_file(filename, show_header_info);
-    }
-    else {
-        std::cout << "==========ASCII-ifier by Caleb Geyer==========" << std::endl
-            << "| Note: To run from command line: ./ascii-ifier <filepath>" << std::endl
-            << "|\n"
-            << "| Input a filepath. This program supports .bmp images in\n"
-            << "| 24 bits per pixel format.\n";
-        std::string filepath;
-        getline(std::cin, filepath);
-        read_file(filepath, false);
-    }
+    if (argc < 2)
+        std::cout << "Usage: " << argv[0] << " [filename]" << std::endl;
+    else
+        readFile(argv[1]);
     return 0;
 }
