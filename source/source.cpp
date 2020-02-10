@@ -1,8 +1,5 @@
 #include <iostream>
-#include <iomanip>
 #include <fstream>
-#include <vector>
-#include <string>
 
 typedef unsigned char byte;
 
@@ -14,11 +11,9 @@ struct Pixel {
         {
             this->rgba = new byte[bytesPerPixel];
         }
-
         ~Pixel() {
             if (this->rgba) delete[] this->rgba;
         }
-
         inline void setRGBA(byte* rgba) { this->rgba = rgba; }
         inline byte* getRGBA() const { return this->rgba; }
         unsigned int getAverage() const {
@@ -38,24 +33,30 @@ bool readFile(const std::string& filename) {
         return false;
     }
 
+    int numBytesIgnored = 0;
     auto throwAwayBytes = [&](int numBytes) {
         byte temp;
         for (int i = 0; i < numBytes; i++) data >> temp;
+        numBytesIgnored += numBytes;
     };
+    int numBytesRead = 0;
 
+    // Header: Size is 14 bytes
+    throwAwayBytes(2); // Ignore Signature
+    unsigned int sizeInBytes; data.read((char*)&sizeInBytes, 4); numBytesRead += 4; // 0x02 -> 0x05
+    throwAwayBytes(4); // Ignore reserved space
+    unsigned int startingAddress; data.read((char*)&startingAddress, 4); numBytesRead += 4; // 0x0A -> 0x0D
+
+    // Info Header
+    unsigned int sizeOfHeader; data.read((char*)&sizeOfHeader, 4); numBytesRead += 4; // This represents the size of the info header! 0x0E -> 0x11
+    unsigned int width; data.read((char*)&width, 4); numBytesRead += 4; // 0x12 -> 0x15
+    unsigned int height; data.read((char*)&height, 4); numBytesRead += 4; // 0x16 -> 0x19
     throwAwayBytes(2);
-    unsigned int sizeInBytes; data.read((char*)&sizeInBytes, 4); // 0x02 -> 0x05
-    throwAwayBytes(4);
-    unsigned int startingAddress; data.read((char*)&startingAddress, 4); // 0x0A -> 0x0D
-    unsigned int sizeOfHeader; data.read((char*)&sizeOfHeader, 4); // 0x0E -> 0x11
-    unsigned int width; data.read((char*)&width, 4); // 0x12 -> 0x15
-    unsigned int height; data.read((char*)&height, 4); // 0x16 -> 0x19
-    throwAwayBytes(2);
-    unsigned short bpp; data.read((char*)&bpp, 2); // 0x1C -> 0x1D 30 bytes total
+    unsigned short bpp; data.read((char*)&bpp, 2); numBytesRead += 2; // 0x1C -> 0x1D 30 bytes total
     unsigned short bytesPerPixel = bpp / 8;
     throwAwayBytes(4);
-    unsigned int imageSize; data.read((char*)&imageSize, 4); // 0x22 -> 0x25 38 bytes total
-    throwAwayBytes(startingAddress - 38);
+    unsigned int imageSize; data.read((char*)&imageSize, 4); numBytesRead += 4; // 0x22 -> 0x25 38 bytes total
+    throwAwayBytes(startingAddress - numBytesIgnored - numBytesRead);
 
     auto calculatePadding = [&]() {
         if (!((width * bytesPerPixel) % 4)) return 0;
@@ -63,6 +64,7 @@ bool readFile(const std::string& filename) {
         while (((width * bytesPerPixel) + padding) % 4) padding++;
         return padding;
     };
+
     int padding = calculatePadding();
     size_t arrSize = imageSize * sizeof(byte) - (height * padding);
     byte* pixelData = new byte[arrSize];
@@ -81,7 +83,6 @@ bool readFile(const std::string& filename) {
 
     data.close();
 
-    //unsigned int numPixels = (imageSize / bytesPerPixel) - (padding * height);
     unsigned int numPixels = (imageSize - (padding * height)) / bytesPerPixel;
     Pixel* pixels = new Pixel[numPixels];
 
